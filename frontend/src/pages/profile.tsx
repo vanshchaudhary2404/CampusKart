@@ -8,7 +8,7 @@ import {
   BarChart2, ArrowUpRight, Zap, BadgeCheck, Coins,
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
-import { fetchSaved, fetchUserListings, type ApiListing } from '@/lib/api';
+import { fetchSaved, fetchUserListings, deleteListing, type ApiListing } from '@/lib/api';
 import { authClient } from '@/lib/auth/auth-client';
 import { toast } from 'sonner';
 import { Helmet } from '@dr.pogodin/react-helmet';
@@ -82,12 +82,22 @@ export default function ProfilePage() {
     navigate('/');
   };
 
-  const removeListingHandler = async (id: number) => {
-    setMyListings(prev => prev.filter(l => l.id !== id));
-    toast.success('Listing removed');
-  };
+  
+const removeListingHandler = async (id: string) => {
+  try {
+    await deleteListing(id);
 
-  const unsaveHandler = async (id: number) => {
+    setMyListings(prev => prev.filter(l => l.id !== id));
+    toast.success('Listing deleted successfully');
+  } catch (error) {
+    toast.error(
+      error instanceof Error ? error.message : 'Failed to delete listing'
+    );
+  }
+};
+
+
+  const unsaveHandler = async (id: string) => {
     setSavedItems(prev => prev.filter(l => l.id !== id));
     toast.success('Removed from saved');
   };
@@ -97,8 +107,13 @@ export default function ProfilePage() {
     : 'CB';
 
   const joinDate = sessionUser
-    ? new Date(sessionUser.createdAt).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })
-    : '';
+  ? new Date(
+      (sessionUser as { createdAt?: string }).createdAt || Date.now()
+    ).toLocaleDateString('en-IN', {
+      month: 'long',
+      year: 'numeric',
+    })
+  : '';
 
   return (
     <>
@@ -458,12 +473,17 @@ export default function ProfilePage() {
                                   >
                                     View
                                   </Link>
-                                  <button
-                                    onClick={() => removeListingHandler(listing.id)}
-                                    className="p-1.5 rounded-xl border border-border text-muted-foreground hover:text-red-500 hover:border-red-200 transition-all"
-                                  >
-                                    <Trash2 size={13} />
-                                  </button>
+                                  
+                               <button type="button" onClick={() => {
+                                if (window.confirm(`Delete "${listing.title}"?`)) {
+                               removeListingHandler(listing.id);
+                                }
+                              }}
+                             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-red-200 bg-red-50 text-red-600 text-xs font-semibold hover:bg-red-100 transition-all">
+                           <Trash2 size={13} />
+                                Delete
+                                </button>
+
                                 </div>
                               </div>
                             </div>

@@ -4,10 +4,43 @@ import { protect } from '../middleware/auth.js';
 
 const router = express.Router();
 
+const moderateListing = async (product) => {
+  const response = await fetch(
+    'http://localhost:5001/api/ai/moderate-listing',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: product.title,
+        category: product.category,
+        condition: product.condition,
+        description: product.description,
+      }),
+      signal: AbortSignal.timeout(125000),
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Moderation service returned ${response.status}`);
+  }
+
+  const result = await response.json();
+
+  if (
+    !['approved', 'review', 'blocked'].includes(result.decision) ||
+    !Array.isArray(result.reasons) ||
+    !result.reasons.every((reason) => typeof reason === 'string')
+  ) {
+    throw new Error('Invalid moderation response.');
+  }
+
+  return result;
+};
+
+
 const mapListing = (listing) => {
-  const numericId = Number.parseInt(listing._id.toString().slice(-6), 16) || 1;
   return {
-    id: numericId,
+    id: listing._id.toString(),
     title: listing.title,
     price: Number(listing.price || 0),
     originalPrice: Number(listing.originalPrice || listing.price || 0),
@@ -73,14 +106,118 @@ router.get('/:id', async (req, res) => {
   }
 });
 
+
 router.post('/', async (req, res) => {
   try {
+    const {
+      title,
+      description,
+      price,
+      originalPrice,
+      category,
+      condition,
+      location,
+    } = req.body ?? {};
+
+    // Validate required listing fields before calling the AI.
+    if (
+      typeof title !== 'string' ||
+      !title.trim() ||
+      title.trim().length > 150
+    ) {
+      return res.status(400).json({
+        message: 'Enter a valid product title (maximum 150 characters).',
+      });
+    }
+
+    if (
+      typeof description !== 'string' ||
+      !description.trim() ||
+      description.length > 3000
+    ) {
+      return res.status(400).json({
+        message: 'Enter a valid product description (maximum 3000 characters).',
+      });
+    }
+
+    if (
+      price === undefined ||
+      price === null ||
+      price === '' ||
+      !Number.isFinite(Number(price)) ||
+      Number(price) <= 0
+    ) {
+      return res.status(400).json({
+        message: 'Enter a valid selling price.',
+      });
+    }
+
+    if (
+      typeof category !== 'string' ||
+      !category.trim() ||
+      typeof condition !== 'string' ||
+      !condition.trim() ||
+      typeof location !== 'string' ||
+      !location.trim()
+    ) {
+      return res.status(400).json({
+        message: 'Category, condition, and location are required.',
+      });
+    }
+
+    // Ask the AI to check the listing before saving it.
+    let moderation;
+
+    try {
+      moderation = await moderateListing({
+        title: title.trim(),
+        description: description.trim(),
+        category,
+        condition,
+      });
+    } catch (error) {
+      console.error('Listing moderation failed:', error.message);
+
+      return res.status(503).json({
+        message:
+          'Listing moderation is temporarily unavailable. Please try again.',
+      });
+    }
+
+    // Do not save listings that the AI flags as clearly prohibited.
+    if (moderation.decision === 'blocked') {
+      return res.status(422).json({
+        message: 'This listing could not be published.',
+        moderationStatus: 'blocked',
+        reasons: moderation.reasons,
+      });
+    }
+
+    const needsReview = moderation.decision === 'review';
+
     const listing = await Listing.create({
       ...req.body,
-      originalPrice: req.body.originalPrice || req.body.price,
+
+      title: title.trim(),
+      description: description.trim(),
+      price: Number(price),
+      originalPrice:
+        originalPrice !== undefined &&
+        originalPrice !== null &&
+        originalPrice !== ''
+          ? Number(originalPrice)
+          : Number(price),
+
       image: req.body.image || '/assets/default-listing.jpg',
-      images: req.body.images || [req.body.image || '/assets/default-listing.jpg'],
-      seller: req.body.seller || req.user?.id || '000000000000000000000000',
+      images:
+        req.body.images ||
+        [req.body.image || '/assets/default-listing.jpg'],
+
+      seller:
+        req.user?.id ||
+        req.body.seller ||
+        '000000000000000000000000',
+
       sellerName: req.body.sellerName || 'Campus User',
       sellerAvatar: req.body.sellerAvatar || '',
       sellerAvatarBg: req.body.sellerAvatarBg || '#4f46e5',
@@ -89,14 +226,77 @@ router.post('/', async (req, res) => {
       rating: req.body.rating || '4.8',
       reviews: Number(req.body.reviews || 0),
       saved: !!req.body.saved,
-      active: true,
-      isActive: true,
+
+      // Listings requiring review are hidden from public browsing.
+      active: !needsReview,
+      isActive: !needsReview,
+
+      moderationStatus: needsReview ? 'review' : 'approved',
+      moderationReasons: moderation.reasons,
+      moderationCheckedAt: new Date(),
     });
-    return res.status(201).json(mapListing(listing));
+
+    if (needsReview) {
+      return res.status(202).json({
+        message: 'Your listing has been submitted for manual review.',
+        moderationStatus: 'review',
+        reasons: moderation.reasons,
+        listingId: listing._id,
+      });
+    }
+
+    return res.status(201).json({
+      ...mapListing(listing),
+      moderationStatus: 'approved',
+    });
   } catch (error) {
-    return res.status(500).json({ message: error.message });
+    console.error('Listing creation error:', error.message);
+    return res.status(500).json({
+      message: 'Failed to create listing.',
+    });
   }
 });
+
+router.delete('/:id', protect, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!/^[0-9a-fA-F]{24}$/.test(id)) {
+      return res.status(400).json({
+        message: 'Invalid listing ID.',
+      });
+    }
+
+    const listing = await Listing.findById(id);
+
+    if (!listing) {
+      return res.status(404).json({
+        message: 'Listing not found.',
+      });
+    }
+
+    // The authenticated user must own the listing.
+    if (listing.seller.toString() !== req.user.id.toString()) {
+      return res.status(403).json({
+        message: 'You can only delete your own listings.',
+      });
+    }
+
+    await listing.deleteOne();
+
+    return res.json({
+      success: true,
+      message: 'Listing deleted successfully.',
+    });
+  } catch (error) {
+    console.error('Delete listing error:', error.message);
+
+    return res.status(500).json({
+      message: 'Failed to delete listing.',
+    });
+  }
+});
+
 
 router.post('/:id/save', async (req, res) => {
   try {

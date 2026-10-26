@@ -4,12 +4,15 @@ import { motion } from 'motion/react';
 import { useForm } from 'react-hook-form';
 import {
   Upload, X, Camera, Tag, IndianRupee, MapPin,
-  BookOpen, Laptop, Bike, Sofa, Shirt, Music, FileText, Dumbbell, CheckCircle, ArrowRight,
+  BookOpen, Laptop, Bike, Sofa, Shirt, Music, FileText,
+  Dumbbell, CheckCircle, ArrowRight, Sparkles,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Link } from 'react-router-dom';
 import { postListing, type ApiListing } from '@/lib/api';
 import { authClient } from '@/lib/auth/auth-client';
+
+type ModerationStatus = 'approved' | 'review';
 
 type FormData = {
   title: string;
@@ -41,10 +44,154 @@ export default function SellPage() {
   const [selectedCondition, setSelectedCondition] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [newListing, setNewListing] = useState<ApiListing | null>(null);
+  const [moderationStatus, setModerationStatus] = useState<ModerationStatus>('approved');
+
+  const [moderationReasons, setModerationReasons] = useState<string[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const { register, handleSubmit, formState: { errors }, watch } = useForm<FormData>();
+  const { register, handleSubmit, formState: { errors }, watch ,setValue} = useForm<FormData>();
   const titleValue = watch('title', '');
+  const [suggestingPrice, setSuggestingPrice] = useState(false);
+  const generateDescription = async () => {
+  const title = watch('title', '').trim();
+
+  if (!title) {
+    toast.error('Please enter the item title first.');
+    return;
+  }
+
+  if (!selectedCategory) {
+    toast.error('Please select a category first.');
+    return;
+  }
+
+  if (!selectedCondition) {
+    toast.error('Please select the item condition first.');
+    return;
+  }
+
+  setGeneratingDescription(true);
+
+  try {
+    const originalPriceValue = watch('originalPrice');
+
+    const response = await fetch(
+      'http://localhost:5001/api/ai/generate-description',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: title,
+          category: selectedCategory,
+          condition: selectedCondition,
+          ...(originalPriceValue
+            ? { originalPrice: Number(originalPriceValue) }
+            : {}),
+        }),
+      }
+    );
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        result.error || 'Failed to generate description.'
+      );
+    }
+
+    if (!result.description) {
+      throw new Error('No description was returned.');
+    }
+
+    setValue('description', result.description, {
+      shouldValidate: true,
+      shouldDirty: true,
+    });
+
+    toast.success('AI description generated successfully!');
+  } catch (error) {
+    console.error('Description generation failed:', error);
+
+    toast.error(
+      error instanceof Error
+        ? error.message
+        : 'Could not generate description. Please try again.'
+    );
+  } finally {
+    setGeneratingDescription(false);
+  }
+};
+
+const suggestPrice = async () => {
+  const title = watch('title', '').trim();
+  const originalPriceValue = watch('originalPrice');
+
+  if (!title) {
+    toast.error('Please enter the item title first.');
+    return;
+  }
+
+  if (!selectedCategory || !selectedCondition) {
+    toast.error('Please select category and condition first.');
+    return;
+  }
+
+  if (!originalPriceValue || Number(originalPriceValue) <= 0) {
+    toast.error('Please enter a valid original price first.');
+    return;
+  }
+
+  setSuggestingPrice(true);
+
+  try {
+    const response = await fetch(
+      'http://localhost:5001/api/ai/suggest-price',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: title,
+          category: selectedCategory,
+          condition: selectedCondition,
+          originalPrice: Number(originalPriceValue),
+        }),
+      }
+    );
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.error || 'Failed to suggest price.');
+    }
+
+    const suggestedPrice = Number(result.suggestedPrice);
+
+    if (!Number.isFinite(suggestedPrice) || suggestedPrice <= 0) {
+      throw new Error('AI returned an invalid price.');
+    }
+
+    setValue('price', suggestedPrice, {
+      shouldValidate: true,
+      shouldDirty: true,
+    });
+
+    toast.success(`Suggested price: ₹${suggestedPrice}`);
+  } catch (error) {
+    console.error('Price suggestion error:', error);
+    toast.error(
+      error instanceof Error
+        ? error.message
+        : 'Could not suggest a price.'
+    );
+  } finally {
+    setSuggestingPrice(false);
+  }
+};
+
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
@@ -62,6 +209,7 @@ export default function SellPage() {
   };
 
   const [submitting, setSubmitting] = useState(false);
+  const [generatingDescription, setGeneratingDescription] = useState(false);
 
   const removeImage = (i: number) => setImages(prev => prev.filter((_, idx) => idx !== i));
 
@@ -77,42 +225,82 @@ export default function SellPage() {
     return url as string;
   };
 
-  const onSubmit = async (data: FormData) => {
-    if (!selectedCategory) { toast.error('Please select a category'); return; }
-    if (!selectedCondition) { toast.error('Please select a condition'); return; }
-    setSubmitting(true);
-    try {
-      // Upload first image if provided, otherwise use a default campus marketplace image
-      let imageUrl = 'https://images.unsplash.com/photo-1544717305-2782549b5136?auto=format&fit=crop&w=900&q=80';
-      if (images.length > 0) {
-        try {
-          imageUrl = await uploadImage(images[0]);
-        } catch {
-          // Non-fatal: fall back to default image
-          toast.info('Image upload failed, using default photo');
-        }
-      }
+  
+const onSubmit = async (data: FormData) => {
+  if (!selectedCategory) {
+    toast.error('Please select a category');
+    return;
+  }
 
-      const created = await postListing({
-        title: data.title,
-        description: data.description,
-        price: String(data.price),
-        originalPrice: String(data.originalPrice || data.price),
-        category: selectedCategory,
-        condition: selectedCondition,
-        location: data.location,
-        image: imageUrl,
-        ...(session?.user?.email ? { sellerEmail: session.user.email, sellerName: session.user.name } : {}),
-      });
-      toast.success('Listing posted successfully!');
-      setNewListing(created);
-      setSubmitted(true);
-    } catch {
-      toast.error('Failed to post listing. Please try again.');
-    } finally {
-      setSubmitting(false);
+  if (!selectedCondition) {
+    toast.error('Please select a condition');
+    return;
+  }
+
+  setSubmitting(true);
+
+  try {
+    let imageUrl =
+      'https://images.unsplash.com/photo-1544717305-2782549b5136?auto=format&fit=crop&w=900&q=80';
+
+    if (images.length > 0) {
+      try {
+        imageUrl = await uploadImage(images[0]);
+      } catch {
+        toast.info('Image upload failed, using default photo');
+      }
     }
-  };
+
+    const created = await postListing({
+      title: data.title,
+      description: data.description,
+      price: String(data.price),
+      originalPrice: String(data.originalPrice || data.price),
+      category: selectedCategory,
+      condition: selectedCondition,
+      location: data.location,
+      image: imageUrl,
+      ...(session?.user?.email
+        ? {
+            sellerEmail: session.user.email,
+            sellerName: session.user.name,
+          }
+        : {}),
+    });
+
+    // Read the moderation result returned by the backend.
+    const result = created as ApiListing & {
+      moderationStatus?: ModerationStatus;
+      message?: string;
+      reasons?: string[];
+    };
+
+    const status = result.moderationStatus ?? 'approved';
+
+    setModerationStatus(status);
+    setModerationReasons(result.reasons ?? []);
+
+    if (status === 'review') {
+      toast.info('Listing submitted for manual review.');
+    } else {
+      toast.success('Listing published successfully!');
+    }
+
+    setNewListing(created);
+    setSubmitted(true);
+  } catch (error) {
+    console.error('Failed to post listing:', error);
+
+    toast.error(
+      error instanceof Error
+        ? error.message
+        : 'Failed to post listing. Please try again.'
+    );
+  } finally {
+    setSubmitting(false);
+  }
+};
+
 
   if (submitted && newListing) {
     return (
@@ -131,8 +319,27 @@ export default function SellPage() {
           >
             <CheckCircle size={44} className="text-green-500" />
           </motion.div>
-          <h2 className="text-3xl font-bold text-foreground font-heading mb-3">Item Listed!</h2>
-          <p className="text-muted-foreground mb-6">Your item is now live on Campus Bazaar. Students can find and contact you.</p>
+          <h2 className="text-3xl font-bold text-foreground font-heading mb-3">
+          {moderationStatus === 'review'
+          ? 'Listing Under Review'
+          : 'Item Listed!'}
+          </h2>
+          <p className="text-muted-foreground mb-6">
+           {moderationStatus === 'review'
+           ? 'Your listing has been submitted for manual review. It will not appear in public browsing until approved.'
+           : 'Your item is now live on Campus Bazaar. Students can find and contact you.'}
+          </p>
+
+        {moderationStatus === 'review' && moderationReasons.length > 0 && (
+       <div className="mb-6 rounded-xl border border-amber-300 bg-amber-50 p-4 text-left text-sm text-amber-900">
+        <p className="font-semibold">Reason for review</p>
+        <ul className="mt-2 list-disc pl-5">
+        {moderationReasons.map((reason, index) => (
+          <li key={index}>{reason}</li>
+        ))}
+       </ul>
+     </div>
+ )}
 
           {/* Preview card of the new listing */}
           <motion.div
@@ -151,7 +358,14 @@ export default function SellPage() {
             <div className="p-4">
               <div className="flex items-start justify-between gap-2 mb-1">
                 <h3 className="font-bold text-foreground font-heading text-sm line-clamp-1">{newListing.title}</h3>
-                <span className="px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-xs font-bold flex-shrink-0">Live</span>
+                <span className={`px-2 py-0.5 rounded-full text-xs font-bold flex-shrink-0 ${
+                   moderationStatus === 'review'
+                   ? 'bg-amber-100 text-amber-800'
+                   : 'bg-green-100 text-green-700'
+                  }`}
+                 >
+               {moderationStatus === 'review' ? 'Under Review' : 'Live'}
+               </span>
               </div>
               <p className="text-primary font-bold text-lg">₹{newListing.price.toLocaleString()}</p>
               <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
@@ -163,13 +377,14 @@ export default function SellPage() {
           </motion.div>
 
           <div className="flex gap-3 justify-center">
-            <Link
-              to={`/listing/${newListing.id}`}
-              className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-primary text-primary-foreground font-bold text-sm hover:bg-primary/90 transition-all"
-            >
-              View Listing
-              <ArrowRight size={15} />
-            </Link>
+            {moderationStatus === 'approved' && (
+          <Link
+               to={`/listing/${newListing.id}`}
+                className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-primary text-primary-foreground font-bold text-sm hover:bg-primary/90 transition-all">
+                View Listing
+                <ArrowRight size={15} />
+          </Link>
+         )}
             <Link
               to="/listings"
               className="px-6 py-3 rounded-2xl border border-border text-sm font-semibold text-muted-foreground hover:text-foreground transition-all"
@@ -281,6 +496,17 @@ export default function SellPage() {
 
                 <div>
                   <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide mb-1.5 block">Description *</label>
+                  <button
+                 type="button"
+                 onClick={generateDescription}
+                 disabled={generatingDescription}
+                 className="mb-3 inline-flex items-center gap-2 rounded-xl border border-primary/30 px-4 py-2 text-sm font-semibold text-primary hover:bg-secondary transition-all disabled:opacity-60"
+                >
+                <Sparkles size={16} />
+                {generatingDescription
+                ? 'Generating description...'
+                : 'Generate Description with AI'}
+                </button>
                   <textarea
                     {...register('description', { required: 'Description is required', minLength: { value: 20, message: 'At least 20 characters' } })}
                     rows={4}
@@ -346,7 +572,23 @@ export default function SellPage() {
                 </h2>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide mb-1.5 block">Your Price *</label>
+                    
+              <div className="flex items-center justify-between gap-2 mb-1.5">
+               <label className="text-xs font-bold text-muted-foreground uppercase tracking-wide">
+               Your Price *
+               </label>
+
+              <button
+              type="button"
+              onClick={suggestPrice}
+              disabled={suggestingPrice}
+              className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline disabled:opacity-60"
+             >
+            <Sparkles size={14} />
+           {suggestingPrice ? 'Suggesting...' : 'Suggest Price with AI'}
+              </button>
+            </div>
+
                     <div className="relative">
                       <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-bold">₹</span>
                       <input

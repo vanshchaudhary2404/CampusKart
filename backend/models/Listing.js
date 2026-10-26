@@ -22,8 +22,24 @@ const listingSchema = new mongoose.Schema(
     rating: { type: String, default: '4.8' },
     reviews: { type: Number, default: 0 },
     saved: { type: Boolean, default: false },
+    
     active: { type: Boolean, default: true },
     isActive: { type: Boolean, default: true },
+
+    moderationStatus: {
+      type: String,
+      enum: ['pending', 'approved', 'review', 'blocked'],
+      default: 'pending',
+    },
+    moderationReasons: {
+      type: [String],
+      default: [],
+    },
+    moderationCheckedAt: {
+      type: Date,
+      default: null,
+    },
+
   },
   { timestamps: true }
 );

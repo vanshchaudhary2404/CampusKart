@@ -1,7 +1,8 @@
 // Shared API client for Campus Bazaar
+const TOKEN_KEY = 'campus-bazaar-token';
 
 export type ApiListing = {
-  id: number;
+  id: string;
   title: string;
   price: number;
   originalPrice: number;
@@ -52,7 +53,7 @@ export async function fetchListings(params: Record<string, string> = {}): Promis
   return res.json();
 }
 
-export async function fetchListing(id: number): Promise<ApiListing> {
+export async function fetchListing(id: string): Promise<ApiListing> {
   const res = await fetch(`/api/listings/${id}`);
   if (!res.ok) throw new Error('Listing not found');
   return res.json();
@@ -71,7 +72,7 @@ export async function postListing(data: Record<string, string>): Promise<ApiList
   return res.json();
 }
 
-export async function toggleSave(listingId: number, userId = 1): Promise<{ saved: boolean }> {
+export async function toggleSave(listingId: string, userId = 1): Promise<{ saved: boolean }> {
   const res = await fetch(`/api/listings/${listingId}/save`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -87,7 +88,7 @@ export async function fetchSaved(userId = 1): Promise<ApiListing[]> {
   return res.json();
 }
 
-export async function postReview(listingId: number, data: { rating: number; text: string; userId?: number }): Promise<ApiReview> {
+export async function postReview(listingId: string, data: { rating: number; text: string; userId?: number }): Promise<ApiReview> {
   const res = await fetch(`/api/listings/${listingId}/reviews`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -111,4 +112,27 @@ export function formatListing(l: ApiListing) {
     postedAt: l.postedAt ?? (l.createdAt ? new Date(l.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : 'Recently'),
     sellerSales: l.sellerSales ?? 0,
   };
+}
+
+
+export async function deleteListing(id: string): Promise<void> {
+  const token =
+    typeof window !== 'undefined'
+      ? window.localStorage.getItem(TOKEN_KEY)
+      : null;
+
+  const res = await fetch(
+    `/api/listings/${encodeURIComponent(id)}`,
+    {
+      method: 'DELETE',
+      headers: token
+        ? { Authorization: `Bearer ${token}` }
+        : {},
+    }
+  );
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message ?? 'Failed to delete listing');
+  }
 }
