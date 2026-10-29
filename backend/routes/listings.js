@@ -76,7 +76,13 @@ router.get('/', async (req, res) => {
 
     if (category && category !== 'All') query.category = String(category);
     if (condition) query.condition = String(condition);
-    if (search) query.title = { $regex: String(search), $options: 'i' };
+    if (search) {
+      const searchTerm = String(search);
+      const singularSearchTerm = searchTerm.endsWith('s') ? searchTerm.slice(0, -1) : null;
+      query.title = singularSearchTerm
+        ? { $regex: `(?:${searchTerm}|${singularSearchTerm})`, $options: 'i' }
+        : { $regex: searchTerm, $options: 'i' };
+    }
     if (minPrice || maxPrice) {
       query.price = {};
       if (minPrice) query.price.$gte = Number(minPrice);

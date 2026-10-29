@@ -4,7 +4,8 @@ import mongoose from 'mongoose';
 import Listing from './models/Listing.js';
 import User from './models/User.js';
 
-const seedEmail = 'demo-seller@campusbazaar.local';
+const seedEmail = 'campuskart@demo';
+const seedPassword = 'campus@123';
 const defaultImage = '/assets/default-listing.jpg';
 const image = (photoId) => `https://images.unsplash.com/${photoId}?auto=format&fit=crop&w=900&q=85`;
 
@@ -97,15 +98,19 @@ const products = [
 const seed = async () => {
   await mongoose.connect(process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/campus-bazaar');
 
-  let seller = await User.findOne({ email: seedEmail });
+  let seller = await User.findOne({ email: { $in: [seedEmail] } });
   if (!seller) {
     seller = await User.create({
-      name: 'Campus Bazaar Demo Seller',
+      name: 'Campus Demo Seller',
       email: seedEmail,
-      password: await bcrypt.hash('campus-bazaar-demo', 10),
+      password: await bcrypt.hash(seedPassword, 10),
       avatarBg: '#4f46e5',
       isVerified: true,
     });
+  } else {
+    seller.email = seedEmail;
+    seller.password = seedPassword;
+    await seller.save();
   }
 
   await Listing.deleteMany({ seller: seller._id });
