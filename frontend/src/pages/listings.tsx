@@ -136,7 +136,10 @@ export default function ListingsPage() {
               {CATEGORIES.map(cat => (
                 <button
                   key={cat}
-                  onClick={() => setCategory(cat)}
+                  onClick={() => {
+                    setCategory(cat);
+                    setSearch('');
+                  }}
                   className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all duration-150 flex-shrink-0 ${
                     category === cat
                       ? 'bg-primary text-primary-foreground shadow-sm'
@@ -227,7 +230,10 @@ export default function ListingsPage() {
                     {TRENDING_SEARCHES.map(t => (
                       <button
                         key={t}
-                        onClick={() => setSearch(t)}
+                        onClick={() => {
+                          setSearch(t);
+                          setCategory('All');
+                        }}
                         className="px-3 py-1.5 rounded-full bg-secondary border border-primary/20 text-xs font-semibold text-primary hover:bg-primary hover:text-primary-foreground transition-all duration-150"
                       >
                         {t}

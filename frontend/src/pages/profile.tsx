@@ -37,7 +37,6 @@ export default function ProfilePage() {
   const [myListings, setMyListings] = useState<ApiListing[]>([]);
   const [savedItems, setSavedItems] = useState<ApiListing[]>([]);
   const [loadingListings, setLoadingListings] = useState(true);
-  const [loadingSaved, setLoadingSaved] = useState(true);
   const [editingBio, setEditingBio] = useState(false);
   const [bio, setBio] = useState('Final year CS student. Selling stuff before graduation. Quick meetups near library or hostel gate. ✌️');
   const [pointsBalance, setPointsBalance] = useState<number | null>(null);
@@ -86,11 +85,8 @@ export default function ProfilePage() {
 
   if (!sessionUser?.email) {
     setSavedItems([]);
-    setLoadingSaved(false);
     return;
   }
-
-  setLoadingSaved(true);
 
   fetch(`/api/users/by-email?email=${encodeURIComponent(sessionUser.email)}`)
     .then(async (response) => {
@@ -114,7 +110,6 @@ export default function ProfilePage() {
       console.error('Failed to load saved items:', error);
       toast.error('Failed to load saved items');
     })
-    .finally(() => setLoadingSaved(false));
 }, [activeTab, sessionLoading, sessionUser?.email]);
 
   // Resolve DB user id and load points balance
@@ -162,6 +157,9 @@ const removeListingHandler = async (id: string) => {
     ? sessionUser.name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()
     : 'CB';
 
+  const imageFallback = (title: string) =>
+    `https://placehold.co/900x600/4f46e5/ffffff?text=${encodeURIComponent(title)}`;
+
   const joinDate = sessionUser
   ? new Date(
       (sessionUser as { createdAt?: string }).createdAt || Date.now()
@@ -182,12 +180,16 @@ const removeListingHandler = async (id: string) => {
       <div className="min-h-screen bg-background">
 
         {/* ── Profile Hero Banner ─────────────────────────────────────────── */}
-        <div className="relative bg-gradient-to-br from-indigo-950 via-indigo-900 to-violet-900 h-36 md:h-48">
-          <div className="absolute inset-0 opacity-20"
-            style={{ backgroundImage: 'radial-gradient(circle at 20% 50%, #6366f1 0%, transparent 50%), radial-gradient(circle at 80% 20%, #8b5cf6 0%, transparent 50%)' }}
+        <div className="relative overflow-hidden bg-gradient-to-br from-primary via-indigo-600 to-violet-700 h-36 md:h-48">
+          <div className="absolute inset-0 opacity-25"
+            style={{ backgroundImage: 'radial-gradient(circle at 15% 30%, #ffffff 0%, transparent 26%), radial-gradient(circle at 85% 10%, #c4b5fd 0%, transparent 32%), linear-gradient(135deg, transparent 35%, rgba(255,255,255,0.12) 35%, rgba(255,255,255,0.12) 36%, transparent 36%)', backgroundSize: 'auto, auto, 42px 42px' }}
           />
+          <div className="absolute bottom-5 left-1/2 -translate-x-1/2 text-center text-white/90 pointer-events-none">
+            <p className="text-[11px] font-bold uppercase tracking-[0.3em]">Campus Bazaar</p>
+            <p className="mt-1 text-xs text-white/70">Your campus marketplace</p>
+          </div>
           {sessionUser && (
-            <button className="absolute top-4 right-4 flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 border border-white/20 text-white text-xs font-semibold hover:bg-white/20 transition-colors backdrop-blur-sm">
+            <button className="absolute top-4 right-4 flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/15 border border-white/30 text-white text-xs font-semibold hover:bg-white/25 transition-colors backdrop-blur-sm">
               <Camera size={12} />
               Edit Banner
             </button>
@@ -217,7 +219,7 @@ const removeListingHandler = async (id: string) => {
                 </div>
 
                 {/* Name + badges */}
-                <div className="flex-1 pt-2 sm:pt-0">
+                <div className="relative z-10 flex-1 pt-2 sm:pt-0 bg-card rounded-2xl px-4 py-3 shadow-sm border border-border/70">
                   {sessionLoading ? (
                     <div className="space-y-2">
                       <div className="h-6 w-40 bg-muted rounded-full animate-pulse" />
@@ -503,7 +505,15 @@ const removeListingHandler = async (id: string) => {
                             className="bg-card border border-border rounded-3xl overflow-hidden group"
                           >
                             <div className="relative h-40 overflow-hidden bg-muted">
-                              <img src={listing.image} alt={listing.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                              <img
+                                src={listing.image}
+                                alt={listing.title}
+                                onError={event => {
+                                  event.currentTarget.onerror = null;
+                                  event.currentTarget.src = imageFallback(listing.title);
+                                }}
+                                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                              />
                               <div className="absolute top-2 right-2 flex gap-1.5">
                                 <span className="px-2 py-0.5 rounded-full bg-green-500 text-white text-xs font-bold">Active</span>
                               </div>
@@ -587,7 +597,15 @@ const removeListingHandler = async (id: string) => {
                             className="bg-card border border-border rounded-3xl overflow-hidden group"
                           >
                             <Link to={`/listing/${listing.id}`} className="block relative h-40 overflow-hidden bg-muted">
-                              <img src={listing.image} alt={listing.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                              <img
+                                src={listing.image}
+                                alt={listing.title}
+                                onError={event => {
+                                  event.currentTarget.onerror = null;
+                                  event.currentTarget.src = imageFallback(listing.title);
+                                }}
+                                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                              />
                             </Link>
                             <div className="p-4">
                               <Link to={`/listing/${listing.id}`}>

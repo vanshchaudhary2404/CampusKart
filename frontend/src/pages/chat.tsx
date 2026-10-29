@@ -34,6 +34,24 @@ type ApiConversation = {
   online: boolean;
 };
 
+const getDemoConversation = (): ApiConversation | null => {
+  try {
+    const stored = localStorage.getItem('campus-bazaar-demo-conversation');
+    return stored ? JSON.parse(stored) as ApiConversation : null;
+  } catch {
+    return null;
+  }
+};
+
+const getDemoMessages = (): ApiMessage[] => {
+  try {
+    const stored = localStorage.getItem('campus-bazaar-demo-messages');
+    return stored ? JSON.parse(stored) as ApiMessage[] : [];
+  } catch {
+    return [];
+  }
+};
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function formatTime(iso: string) {
@@ -96,7 +114,12 @@ export default function ChatPage() {
   const loadConversations = useCallback(async (uid: number) => {
     try {
       const res = await fetch(`/api/conversations?userId=${uid}`);
-      if (!res.ok) return;
+      if (!res.ok) {
+        const demo = getDemoConversation();
+        setConversations(demo ? [demo] : []);
+        if (demo && activeId === null) setActiveId(demo.id);
+        return;
+      }
       const data: ApiConversation[] = await res.json();
       setConversations(data);
       if (data.length > 0 && activeId === null) {
@@ -118,7 +141,10 @@ export default function ChatPage() {
   const loadMessages = useCallback(async (convId: number) => {
     try {
       const res = await fetch(`/api/conversations/${convId}/messages`);
-      if (!res.ok) return;
+      if (!res.ok) {
+        setMessages(getDemoMessages());
+        return;
+      }
       const data: ApiMessage[] = await res.json();
       setMessages(data);
     } catch {
@@ -190,7 +216,15 @@ export default function ChatPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ senderId: dbUserId, text }),
       });
-      if (!res.ok) throw new Error('Send failed');
+      if (!res.ok) {
+        const demoMessages = [...getDemoMessages(), optimistic];
+        localStorage.setItem('campus-bazaar-demo-messages', JSON.stringify(demoMessages));
+        setMessages(demoMessages);
+        setConversations(prev => prev.map(c =>
+          c.id === activeId ? { ...c, lastMessage: `You: ${text}`, lastMessageTime: optimistic.createdAt } : c
+        ));
+        return;
+      }
       const saved: ApiMessage = await res.json();
       // Replace optimistic with real
       setMessages(prev => prev.map(m => m.id === optimistic.id ? saved : m));
