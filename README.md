@@ -1,7 +1,7 @@
-# CampusKart
+# 🏫 CampusKart
 
 <p align="center">
-  <strong>AI-Enabled Campus Marketplace</strong><br />
+  <strong><b>AI-Enabled Campus Marketplace</b></strong><br />
   A trusted platform for students to buy, sell, and exchange products within their college community.
 </p>
 
