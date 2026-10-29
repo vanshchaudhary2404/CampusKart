@@ -28,7 +28,7 @@ router.get('/:id/listings', async (req, res) => {
   try {
     const listings = await Listing.find({ seller: req.params.id }).sort({ createdAt: -1 }).lean();
     return res.json(listings.map((listing) => ({
-      id: Number(listing._id.toString().slice(-6, -1)) || 1,
+      id: listing._id.toString(),
       title: listing.title,
       price: listing.price,
       originalPrice: listing.price,

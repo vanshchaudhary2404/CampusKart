@@ -46,20 +46,76 @@ export default function ProfilePage() {
   const sessionUser = session?.user;
 
   useEffect(() => {
-    fetchUserListings(1)
-      .then(setMyListings)
-      .catch(() => toast.error('Failed to load listings'))
-      .finally(() => setLoadingListings(false));
-  }, []);
+  if (sessionLoading) return;
+
+  if (!sessionUser?.email) {
+    setMyListings([]);
+    setLoadingListings(false);
+    return;
+  }
+
+  setLoadingListings(true);
+
+  fetch(`/api/users/by-email?email=${encodeURIComponent(sessionUser.email)}`)
+    .then(async (response) => {
+      if (!response.ok) {
+        throw new Error('Failed to find user');
+      }
+
+      return response.json();
+    })
+    .then((user) => {
+      const userId = user.id ?? user._id;
+
+      if (!userId) {
+        throw new Error('Database user ID not found');
+      }
+
+      return fetchUserListings(userId);
+    })
+    .then(setMyListings)
+    .catch((error) => {
+      console.error('Failed to load listings:', error);
+      toast.error('Failed to load listings');
+    })
+    .finally(() => setLoadingListings(false));
+}, [sessionLoading, sessionUser?.email]);
 
   useEffect(() => {
-    if (activeTab === 'saved' && savedItems.length === 0 && loadingSaved) {
-      fetchSaved(1)
-        .then(setSavedItems)
-        .catch(() => toast.error('Failed to load saved items'))
-        .finally(() => setLoadingSaved(false));
-    }
-  }, [activeTab]);
+  if (activeTab !== 'saved' || sessionLoading) return;
+
+  if (!sessionUser?.email) {
+    setSavedItems([]);
+    setLoadingSaved(false);
+    return;
+  }
+
+  setLoadingSaved(true);
+
+  fetch(`/api/users/by-email?email=${encodeURIComponent(sessionUser.email)}`)
+    .then(async (response) => {
+      if (!response.ok) {
+        throw new Error('Failed to find user');
+      }
+
+      return response.json();
+    })
+    .then((user) => {
+      const userId = user.id ?? user._id;
+
+      if (!userId) {
+        throw new Error('Database user ID not found');
+      }
+
+      return fetchSaved(userId);
+    })
+    .then(setSavedItems)
+    .catch((error) => {
+      console.error('Failed to load saved items:', error);
+      toast.error('Failed to load saved items');
+    })
+    .finally(() => setLoadingSaved(false));
+}, [activeTab, sessionLoading, sessionUser?.email]);
 
   // Resolve DB user id and load points balance
   useEffect(() => {

@@ -36,18 +36,22 @@ export default function ListingDetailPage() {
   const [reviewText, setReviewText] = useState('');
   const [submittingReview, setSubmittingReview] = useState(false);
 
-  useEffect(() => {
-    if (!id) return;
-    setLoading(true);
-    setError('');
-    fetchListing(parseInt(id))
-      .then(data => {
-        setListing(data);
-        setSaved(data.saved);
-      })
-      .catch(() => setError('Listing not found'))
-      .finally(() => setLoading(false));
-  }, [id]);
+  
+useEffect(() => {
+  if (!id) return;
+
+  setLoading(true);
+  setError('');
+
+  fetchListing(id)
+    .then(data => {
+      setListing(data);
+      setSaved(data.saved);
+    })
+    .catch(() => setError('Listing not found'))
+    .finally(() => setLoading(false));
+}, [id]);
+
 
   // Resolve DB user id for points
   useEffect(() => {

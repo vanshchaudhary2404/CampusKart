@@ -1,6 +1,7 @@
 import express from 'express';
 import Listing from '../models/Listing.js';
 import { protect } from '../middleware/auth.js';
+import User from '../models/User.js';
 
 const router = express.Router();
 
@@ -195,6 +196,32 @@ router.post('/', async (req, res) => {
 
     const needsReview = moderation.decision === 'review';
 
+    
+const sellerEmail = String(req.body.sellerEmail || '')
+  .trim()
+  .toLowerCase();
+
+let sellerId = req.user?.id || req.user?._id;
+
+if (!sellerId && sellerEmail) {
+  const user = await User.findOne({ email: sellerEmail }).select('_id');
+
+  if (!user) {
+    return res.status(404).json({
+      message: 'User account not found. Please sign in again.',
+    });
+  }
+
+  sellerId = user._id;
+}
+
+if (!sellerId) {
+  return res.status(401).json({
+    message: 'Please sign in before posting a listing.',
+  });
+}
+
+
     const listing = await Listing.create({
       ...req.body,
 
@@ -213,10 +240,7 @@ router.post('/', async (req, res) => {
         req.body.images ||
         [req.body.image || '/assets/default-listing.jpg'],
 
-      seller:
-        req.user?.id ||
-        req.body.seller ||
-        '000000000000000000000000',
+      seller: sellerId,
 
       sellerName: req.body.sellerName || 'Campus User',
       sellerAvatar: req.body.sellerAvatar || '',
