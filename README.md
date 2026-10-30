@@ -209,6 +209,7 @@ MONGO_URI=mongodb+srv://<username>:<encoded-password>@<cluster-host>/<database>?
 JWT_SECRET=replace-with-a-long-random-secret
 CLIENT_URL=http://localhost:5173
 VITE_API_URL=http://localhost:5000/api
+AUTHORIZED_EMAIL_DOMAINS=glbitm.ac.in,othercollege.edu
 ```
 
 For local MongoDB, use:
@@ -228,6 +229,8 @@ Always URL-encode special characters in a MongoDB password:
 
 For MongoDB Atlas, add your development IP address under **Network Access** and grant the database user read/write permissions.
 
+Only email addresses from the domains listed in `AUTHORIZED_EMAIL_DOMAINS` can register or log in. To add another college later, use a comma-separated list, for example `glbitm.ac.in,example.edu`, and update the frontend `VITE_AUTHORIZED_EMAIL_DOMAINS` value as well.
+
 ### Start the application
 
 Start both services together:
@@ -236,13 +239,13 @@ Start both services together:
 npm run dev
 ```
 
-Application URLs:
+<!-- Application URLs:
 
 | Service | URL |
 |---|---|
 | Frontend | http://localhost:5173 |
 | Backend | http://localhost:5000 |
-| API health check | http://localhost:5000/api/health |
+| API health check | http://localhost:5000/api/health | -->
 
 To run services independently:
 
@@ -275,10 +278,10 @@ The command removes the previous demo seller's listings before inserting the cur
 
 ### Demo credentials
 
-```text
-Email: campuskart@demo
+<!-- ```text
+Email: campuskart@glbitm.ac.in
 Password: campus@123
-```
+``` -->
 
 ### Presentation workflow
 
@@ -320,6 +323,7 @@ Password: campus@123
 
 ```text
 Campus-Bazaar/
+|── AI/                    # AI - ollama / LLM
 ├── backend/
 │   ├── middleware/        # Authentication middleware
 │   ├── models/            # Mongoose schemas
@@ -402,7 +406,7 @@ The project can be evaluated through:
 | Project | CampusKart — An AI-Enabled Campus Marketplace |
 | Institute | G. L. Bajaj Institute of Technology & Management |
 | Department | Computer Science & Engineering — Artificial Intelligence |
-| Project type | Final-year academic project |
+| Project type | Final-year major project |
 
 ---
 
