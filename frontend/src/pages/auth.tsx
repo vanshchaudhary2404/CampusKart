@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form';
 import { Eye, EyeOff, Mail, Lock, User, ArrowRight, ShoppingBag, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { Link } from 'react-router-dom';
+import { CAMPUS_EMAIL_MESSAGE, isAllowedCampusEmail, isValidEmail } from '@/lib/auth/email-policy';
 
 type LoginData = { email: string; password: string };
 type SignupData = { name: string; email: string; password: string; confirmPassword: string };
@@ -17,10 +18,26 @@ export default function AuthPage() {
   const signupForm = useForm<SignupData>();
 
   const onLogin = (_data: LoginData) => {
+    if (!isAllowedCampusEmail(_data.email) || !isValidEmail(_data.email)) {
+      toast.error(CAMPUS_EMAIL_MESSAGE);
+      return;
+    }
     toast.success('Welcome back!');
   };
 
   const onSignup = (data: SignupData) => {
+    if (data.name.trim().length < 2 || data.name.trim().length > 80) {
+      toast.error('Name must be between 2 and 80 characters');
+      return;
+    }
+    if (!isAllowedCampusEmail(data.email) || !isValidEmail(data.email)) {
+      toast.error(CAMPUS_EMAIL_MESSAGE);
+      return;
+    }
+    if (data.password.length < 8 || data.password.length > 128) {
+      toast.error('Password must be between 8 and 128 characters');
+      return;
+    }
     if (data.password !== data.confirmPassword) {
       toast.error('Passwords do not match');
       return;
@@ -140,13 +157,13 @@ export default function AuthPage() {
                       <div className="relative">
                         <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
                         <input
-                          {...loginForm.register('email', { required: true, pattern: /^\S+@\S+\.\S+$/ })}
+                          {...loginForm.register('email', { required: true, validate: value => isAllowedCampusEmail(value) || CAMPUS_EMAIL_MESSAGE })}
                           type="email"
                           placeholder="you@college.edu"
                           className="w-full pl-10 pr-4 py-3.5 rounded-xl border border-border bg-card text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all"
                         />
                       </div>
-                      {loginForm.formState.errors.email && <p className="text-xs text-red-500 mt-1">Valid email required</p>}
+                      {loginForm.formState.errors.email && <p className="text-xs text-red-500 mt-1">{loginForm.formState.errors.email.message ?? CAMPUS_EMAIL_MESSAGE}</p>}
                     </div>
 
                     <div>
@@ -210,13 +227,13 @@ export default function AuthPage() {
                       <div className="relative">
                         <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
                         <input
-                          {...signupForm.register('email', { required: true, pattern: /^\S+@\S+\.\S+$/ })}
+                          {...signupForm.register('email', { required: true, validate: value => isAllowedCampusEmail(value) || CAMPUS_EMAIL_MESSAGE })}
                           type="email"
                           placeholder="you@college.edu"
                           className="w-full pl-10 pr-4 py-3.5 rounded-xl border border-border bg-card text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all"
                         />
                       </div>
-                      {signupForm.formState.errors.email && <p className="text-xs text-red-500 mt-1">Valid email required</p>}
+                      {signupForm.formState.errors.email && <p className="text-xs text-red-500 mt-1">{signupForm.formState.errors.email.message ?? CAMPUS_EMAIL_MESSAGE}</p>}
                     </div>
 
                     <div>

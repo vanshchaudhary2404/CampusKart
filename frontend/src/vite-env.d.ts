@@ -6,6 +6,7 @@ interface ImportMetaEnv {
   readonly VITE_API_URL: string
   readonly VITE_ENABLE_SOURCE_MAPPING: string
   readonly VITE_ENABLE_SSR: string
+  readonly VITE_AUTHORIZED_EMAIL_DOMAINS: string
 }
 
 interface ImportMeta {

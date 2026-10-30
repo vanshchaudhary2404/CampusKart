@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Mail, Lock, Eye, EyeOff, ArrowRight, ShoppingBag, BookOpen, Bike } from 'lucide-react';
 import { authClient } from '@/lib/auth/auth-client';
 import { toast } from 'sonner';
+import { CAMPUS_EMAIL_MESSAGE, isAllowedCampusEmail, isValidEmail } from '@/lib/auth/email-policy';
 
 type Mode = 'login' | 'signup';
 
@@ -27,21 +28,40 @@ export default function AuthPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (mode === 'signup' && (name.trim().length < 2 || name.trim().length > 80)) {
+      toast.error('Name must be between 2 and 80 characters');
+      return;
+    }
+    if (!isValidEmail(normalizedEmail)) {
+      toast.error('Enter a valid email address');
+      return;
+    }
+    if (!isAllowedCampusEmail(normalizedEmail)) {
+      toast.error(CAMPUS_EMAIL_MESSAGE);
+      return;
+    }
+    if (password.length < 8 || password.length > 128) {
+      toast.error('Password must be between 8 and 128 characters');
+      return;
+    }
+
     setLoading(true);
     try {
       if (mode === 'signup') {
-        const { error } = await authClient.signUp.email({ name, email, password });
+        const { error } = await authClient.signUp.email({ name: name.trim(), email: normalizedEmail, password });
         if (error) throw new Error(error.message ?? 'Sign up failed');
         toast.success('Account created! Welcome to Campus Bazaar.');
         navigate(from, { replace: true });
       } else {
-        const { error } = await authClient.signIn.email({ email, password });
+        const { error } = await authClient.signIn.email({ email: normalizedEmail, password });
         if (error) throw new Error(error.message ?? 'Login failed');
         toast.success('Welcome back!');
         navigate(from, { replace: true });
       }
-    } catch (err: any) {
-      toast.error(err.message ?? 'Something went wrong');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Something went wrong');
     } finally {
       setLoading(false);
     }
@@ -206,10 +226,13 @@ export default function AuthPage() {
                         value={email}
                         onChange={e => setEmail(e.target.value)}
                         required
-                        placeholder="you@college.edu"
+                        placeholder="you@glbitm.ac.in"
                         className="w-full pl-10 pr-4 py-3 rounded-xl border border-border bg-card text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 transition-all"
                       />
                     </div>
+                    <p className="text-xs text-muted-foreground mt-1.5">
+                      Campus access requires an authorized college email ending in @glbitm.ac.in.
+                    </p>
                   </div>
 
                   <div>
