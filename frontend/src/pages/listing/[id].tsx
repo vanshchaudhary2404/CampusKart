@@ -264,10 +264,10 @@ useEffect(() => {
   return (
     <>
       <Helmet>
-        <title>{listing.title} — Campus Bazaar</title>
+        <title>{listing.title} | CampusKart</title>
         <meta name="description" content={(listing.description ?? '').slice(0, 160)} />
         <link rel="canonical" href={canonicalUrl} />
-        <meta property="og:title" content={`${listing.title} — Campus Bazaar`} />
+        <meta property="og:title" content={`${listing.title} | CampusKart`} />
         <meta property="og:description" content={(listing.description ?? '').slice(0, 160)} />
         <meta property="og:url" content={canonicalUrl} />
         <meta property="og:type" content="product" />

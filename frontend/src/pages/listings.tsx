@@ -121,7 +121,7 @@ export default function ListingsPage() {
   return (
     <>
       <Helmet>
-        <title>Browse Listings – Campus Bazaar</title>
+        <title>Browse Listings | CampusKart</title>
 
         <meta
           name="description"
@@ -135,7 +135,7 @@ export default function ListingsPage() {
 
         <meta
           property="og:title"
-          content="Browse Listings – Campus Bazaar"
+          content="Browse Listings | CampusKart"
         />
 
         <meta
@@ -169,7 +169,7 @@ export default function ListingsPage() {
           {JSON.stringify({
             '@context': 'https://schema.org',
             '@type': 'CollectionPage',
-            name: 'Browse Listings – Campus Bazaar',
+            name: 'Browse Listings | CampusKart',
             url: 'https://campusbazaar.in/listings',
             description:
               'Browse all student listings on Campus Bazaar.',
