@@ -4,8 +4,9 @@ import mongoose from 'mongoose';
 import Listing from './models/Listing.js';
 import User from './models/User.js';
 
-const seedEmail = 'campuskart@demo';
+const seedEmail = 'campuskart@glbitm.ac.in';
 const seedPassword = 'campus@123';
+const previousSeedEmails = ['campuskart@demo', 'demo-seller@campusbazaar.local'];
 const defaultImage = '/assets/default-listing.jpg';
 const image = (photoId) => `https://images.unsplash.com/${photoId}?auto=format&fit=crop&w=900&q=85`;
 
@@ -98,7 +99,7 @@ const products = [
 const seed = async () => {
   await mongoose.connect(process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/campus-bazaar');
 
-  let seller = await User.findOne({ email: { $in: [seedEmail] } });
+  let seller = await User.findOne({ email: { $in: [seedEmail, ...previousSeedEmails] } });
   if (!seller) {
     seller = await User.create({
       name: 'Campus Demo Seller',

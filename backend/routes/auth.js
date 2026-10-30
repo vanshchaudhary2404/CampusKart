@@ -1,6 +1,7 @@
 import express from 'express';
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
+import { isAllowedCampusEmail, isValidEmail } from '../config/auth.js';
 
 const router = express.Router();
 
@@ -10,10 +11,21 @@ const createToken = (user) =>
   });
 
 router.post('/register', async (req, res) => {
-  const { name, email, password } = req.body;
+  const name = String(req.body?.name || '').trim();
+  const email = String(req.body?.email || '').trim().toLowerCase();
+  const password = String(req.body?.password || '');
 
-  if (!name || !email || !password) {
-    return res.status(400).json({ message: 'Name, email and password are required' });
+  if (name.length < 2 || name.length > 80) {
+    return res.status(400).json({ message: 'Name must be between 2 and 80 characters' });
+  }
+  if (!isValidEmail(email)) {
+    return res.status(400).json({ message: 'Enter a valid email address' });
+  }
+  if (!isAllowedCampusEmail(email)) {
+    return res.status(403).json({ message: 'Only authorized campus email domains can register' });
+  }
+  if (password.length < 8 || password.length > 128) {
+    return res.status(400).json({ message: 'Password must be between 8 and 128 characters' });
   }
 
   try {
@@ -41,7 +53,15 @@ router.post('/register', async (req, res) => {
 });
 
 router.post('/login', async (req, res) => {
-  const { email, password } = req.body;
+  const email = String(req.body?.email || '').trim().toLowerCase();
+  const password = String(req.body?.password || '');
+
+  if (!isValidEmail(email) || !isAllowedCampusEmail(email)) {
+    return res.status(403).json({ message: 'Use your authorized campus email address to log in' });
+  }
+  if (!password || password.length > 128) {
+    return res.status(400).json({ message: 'Enter a valid password' });
+  }
 
   try {
     const user = await User.findOne({ email });
